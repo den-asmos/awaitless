@@ -263,3 +263,51 @@ describe("chain", () => {
 		});
 	});
 });
+
+describe("node arguments", () => {
+	const api = () => ({
+		user: { id: 42, name: "Alex" },
+		getPosts: vi.fn((id: number) => [`post-${id}`]),
+		async slowId() {
+			await tick();
+			return 41;
+		},
+	});
+
+	it("resolve node passed as an argument", async () => {
+		const root = wrap(api());
+
+		await expect(root.getPosts(root.user.id)).resolves.toEqual(["post-42"]);
+	});
+
+	it("resolve several node arguments and keep plain ones", async () => {
+		const sum = vi.fn((a: number, b: number, c: number) => a + b + c);
+		const root = wrap({ sum, one: 1, two: 2 });
+
+		await expect(root.sum(root.one, root.two, 39)).resolves.toBe(42);
+		expect(sum).toHaveBeenCalledWith(1, 2, 39);
+	});
+
+	it("resolve async node arguments", async () => {
+		const root = wrap(api());
+
+		await expect(root.getPosts(root.slowId())).resolves.toEqual(["post-41"]);
+	});
+
+	it("do not resolve plain promises", async () => {
+		const seen = vi.fn((value: unknown) => value);
+		const promise = Promise.resolve(42);
+
+		await wrap({ seen }).seen(promise);
+
+		expect(seen.mock.calls[0]![0]).toBe(promise);
+	});
+
+	it("reject call when an argument node rejects", async () => {
+		const root = wrap({ f: (x: unknown) => x, missing: null });
+
+		await expect(root.f(root.missing.value)).rejects.toThrow(
+			"Cannot read value of null (at <root>.missing)",
+		);
+	});
+});

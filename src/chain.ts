@@ -6,6 +6,16 @@ const ROOT_PATH = "<root>";
 
 const noop = () => {};
 
+const nodes = new WeakSet<object>();
+
+const isNode = (value: unknown): value is PromiseLike<unknown> => {
+	return (
+		(typeof value === "object" || typeof value === "function") &&
+		value !== null &&
+		nodes.has(value)
+	);
+};
+
 const memoize = <T>(compute: () => Promise<T>): (() => Promise<T>) => {
 	let cache: Promise<T> | undefined;
 
@@ -13,7 +23,9 @@ const memoize = <T>(compute: () => Promise<T>): (() => Promise<T>) => {
 };
 
 const describeKey = (key: string | symbol): string => {
-	if (typeof key === "symbol") return `[${String(key)}]`;
+	if (typeof key === "symbol") {
+		return `[${String(key)}]`;
+	}
 
 	return /^\d+$/.test(key) ? `[${key}]` : `.${key}`;
 };
@@ -26,7 +38,21 @@ const rejectWrite = (path: string) => (): never => {
 	throw new TypeError(`Cannot modify ${path}: chain nodes are read-only`);
 };
 
-const creteGetNode = (
+const resolveArgs = async (args: unknown[]): Promise<unknown[]> => {
+	if (!args.some(isNode)) {
+		return args;
+	}
+
+	const boxed = await Promise.all(
+		args.map((arg) => {
+			return isNode(arg) ? arg.then((value) => ({ value })) : { value: arg };
+		}),
+	);
+
+	return boxed.map(({ value }) => value);
+};
+
+const createGetNode = (
 	parent: Step<unknown>,
 	parentPath: string,
 	key: string | symbol,
@@ -56,7 +82,10 @@ const createCallNode = (
 	args: unknown[],
 ): Wrapped<unknown> => {
 	return createNode(async () => {
-		const { receiver, value } = await callee();
+		const [{ receiver, value }, resolvedArgs] = await Promise.all([
+			callee(),
+			resolveArgs(args),
+		]);
 
 		if (typeof value !== "function") {
 			throw new TypeError(
@@ -66,7 +95,7 @@ const createCallNode = (
 
 		return {
 			receiver: undefined,
-			value: await Reflect.apply(value, receiver, args),
+			value: await Reflect.apply(value, receiver, resolvedArgs),
 		};
 	}, `${calleePath}()`);
 };
@@ -83,9 +112,9 @@ const createNode = <V>(step: Step<V>, path: string): Wrapped<V> => {
 			.then(onFulfilled, onRejected);
 	};
 
-	return new Proxy(run, {
+	const node = new Proxy(run, {
 		get: (_target, key) => {
-			return key === "then" ? then : creteGetNode(run, path, key);
+			return key === "then" ? then : createGetNode(run, path, key);
 		},
 		apply: (_target, _thisArg, args: unknown[]) => {
 			return createCallNode(run, path, args);
@@ -94,6 +123,10 @@ const createNode = <V>(step: Step<V>, path: string): Wrapped<V> => {
 		defineProperty: rejectWrite(path),
 		deleteProperty: rejectWrite(path),
 	}) as unknown as Wrapped<V>;
+
+	nodes.add(node as unknown as object);
+
+	return node;
 };
 
 export const chain = <S>(

@@ -10,9 +10,13 @@ type WrappedList<T extends readonly any[]> = WrappedArray<T[number], T> &
 	WrappedIndex<T> &
 	(T extends any[] ? WrappedMutableArray<T[number]> : unknown);
 
+type NodeArgs<A extends readonly unknown[]> = {
+	[K in keyof A]: A[K] | Wrapped<A[K]>;
+};
+
 export type Wrapped<T> = PromiseLike<T> &
 	(T extends readonly any[]
 		? WrappedList<T>
 		: T extends (...args: infer A) => infer R
-			? (...args: A) => Wrapped<Awaited<R>>
+			? (...args: NodeArgs<A>) => Wrapped<Awaited<R>>
 			: { [K in keyof T & PropertyKey]: Wrapped<T[K]> });
