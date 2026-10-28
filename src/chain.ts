@@ -103,18 +103,43 @@ const createCallNode = (
 const createNode = <V>(step: Step<V>, path: string): Wrapped<V> => {
 	const run = memoize(step);
 
-	const then = (
+	const children = new Map<string | symbol, Wrapped<unknown>>();
+
+	const settle = () => run().then(({ value }) => value);
+
+	const thenHandler = (
 		onFulfilled?: ((value: V) => unknown) | null,
 		onRejected?: ((reason: unknown) => unknown) | null,
 	) => {
-		return run()
-			.then(({ value }) => value)
-			.then(onFulfilled, onRejected);
+		return settle().then(onFulfilled, onRejected);
 	};
+
+	const catchHandler = (onRejected?: ((reason: unknown) => unknown) | null) =>
+		settle().catch(onRejected);
+
+	const finallyHandler = (onFinally?: (() => void) | null) =>
+		settle().finally(onFinally);
 
 	const node = new Proxy(run, {
 		get: (_target, key) => {
-			return key === "then" ? then : createGetNode(run, path, key);
+			if (key === "then") {
+				return thenHandler;
+			}
+			if (key === "catch") {
+				return catchHandler;
+			}
+			if (key === "finally") {
+				return finallyHandler;
+			}
+
+			let child = children.get(key);
+
+			if (!child) {
+				child = createGetNode(run, path, key);
+				children.set(key, child);
+			}
+
+			return child;
 		},
 		apply: (_target, _thisArg, args: unknown[]) => {
 			return createCallNode(run, path, args);

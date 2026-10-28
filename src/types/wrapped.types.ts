@@ -15,6 +15,7 @@ type NodeArgs<A extends readonly unknown[]> = {
 };
 
 export type Wrapped<T> = PromiseLike<T> &
+	Pick<Promise<T>, "catch" | "finally"> &
 	(T extends readonly any[]
 		? WrappedList<T>
 		: T extends (...args: infer A) => infer R
