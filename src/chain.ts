@@ -4,6 +4,12 @@ import type { Wrapped } from "./types/wrapped.types";
 
 const ROOT_PATH = "<root>";
 
+const RESERVED_SYMBOLS: ReadonlySet<symbol> = new Set<symbol>([
+	...Object.getOwnPropertyNames(Symbol)
+		.map((name) => (Symbol as unknown as Record<string, unknown>)[name])
+		.filter((value): value is symbol => typeof value === "symbol"),
+]);
+
 const noop = () => {};
 
 const nodes = new WeakSet<object>();
@@ -130,6 +136,9 @@ const createNode = <V>(step: Step<V>, path: string): Wrapped<V> => {
 			}
 			if (key === "finally") {
 				return finallyHandler;
+			}
+			if (typeof key === "symbol" && RESERVED_SYMBOLS.has(key)) {
+				return undefined;
 			}
 
 			let child = children.get(key);
