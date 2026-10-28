@@ -74,7 +74,7 @@ export type WrappedArray<T, A = T[]> = {
 	concat: (...items: (T | ConcatArray<T>)[]) => Wrapped<T[]>;
 	flat: <D extends number = 1>(depth?: D) => Wrapped<FlatArray<T[], D>[]>;
 	toSorted: (compareFn?: (a: T, b: T) => number) => Wrapped<T[]>;
-	toReserved: () => Wrapped<T[]>;
+	toReversed: () => Wrapped<T[]>;
 	toSpliced: (
 		start: number,
 		deleteCount?: number,

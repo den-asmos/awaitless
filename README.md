@@ -393,11 +393,11 @@ Library errors are `TypeError`s. They include the _path_ of the failing step:
 `<root>` is the resolved request, `.prop` a property, `[0]` an index,
 `()` a call.
 
-| Situation                                | Message                                                     |
-| ---------------------------------------- | ----------------------------------------------------------- |
-| Reading a member of `null` / `undefined` | `Cannot read name of null (at <root>.user.profile)`         |
-| Calling a non-function                   | `Cannot call <root>.count: expected a function, got number` |
-| Writing to a node                        | `Cannot modify <root>: chain nodes are read-only`           |
+| Situation                                | Message                                                   |
+| ---------------------------------------- | --------------------------------------------------------- |
+| Reading a member of `null` / `undefined` | `Cannot read name of null (at <root>.user.profile)`       |
+| Calling a non-function                   | `Cannot call <root>.count: expected function, got number` |
+| Writing to a node                        | `Cannot modify <root>: chain nodes are read-only`         |
 
 For reads, the path points at the value that was `null`/`undefined`.
 
