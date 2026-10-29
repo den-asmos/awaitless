@@ -5,7 +5,7 @@ export interface SchemaTypeMap {
 	date: { constructor: DateConstructor; type: Date };
 }
 
-type Constructor = abstract new (...args: any[]) => any;
+type Constructor = abstract new (...args: any[]) => unknown;
 
 type LookupSchemaType<T> =
 	SchemaTypeMap[keyof SchemaTypeMap] extends infer Entry

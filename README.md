@@ -606,8 +606,9 @@ const data = await chain(Promise.resolve({ id: 1 }), { id: Number }); // { id: n
     types are wrong. See [Extending the type system](#extending-the-type-system).
 16. **Generic and overloaded methods degrade.** Type inference cannot keep a
     method's generics: `id<T>(x: T): T` becomes `(x: unknown) => Wrapped<unknown>`
-    (array methods are special-cased and keep theirs). For overloads, only the
-    last signature is used.
+    (array methods are special-cased and keep theirs). Overloads are kept for
+    up to the last four signatures (enough for `String.split`); earlier ones
+    are dropped.
 17. **Index access with `noUncheckedIndexedAccess`.** `list[0]` is typed
     `Wrapped<T> | undefined` under this compiler option, although a node always
     exists. Use `list[0]!`.

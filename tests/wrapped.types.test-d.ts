@@ -146,3 +146,29 @@ test("expose catch and finally", () => {
 	expectTypeOf(name.catch(() => 1)).toEqualTypeOf<Promise<string | number>>();
 	expectTypeOf(name.finally(() => {})).toEqualTypeOf<Promise<string>>();
 });
+
+test("support overloaded functions", () => {
+	const text = null as unknown as Wrapped<string>;
+	const separator = null as unknown as Wrapped<string>;
+
+	expectTypeOf(text.split("")).toEqualTypeOf<Wrapped<string[]>>();
+	expectTypeOf(text.split(",", 2)).toEqualTypeOf<Wrapped<string[]>>();
+	expectTypeOf(text.split(/x/)).toEqualTypeOf<Wrapped<string[]>>();
+	expectTypeOf(text.split(separator)).toEqualTypeOf<Wrapped<string[]>>();
+
+	// @ts-expect-error number is not valid separator
+	text.split(123);
+});
+
+test("keep single-signature functions unchanged", () => {
+	const api = null as unknown as Wrapped<{
+		sum: (a: number, b: number) => number;
+	}>;
+
+	expectTypeOf(api.sum(41, 1)).toEqualTypeOf<Wrapped<number>>();
+
+	// @ts-expect-error invalid argument type
+	api.sum("1", 2);
+	// @ts-expect-error missing argument
+	api.sum(1);
+});
