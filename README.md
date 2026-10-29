@@ -55,7 +55,7 @@ const name = body.data.user.name[0].toLowerCase();
 
 ## Installation and requirements
 
-> **Status:** awaitless is a learning project and is **not published to npm**.
+> **Status:** awaitless is **not published to npm** yet.
 > Use it from a local checkout as described below. The API may still change.
 
 Clone or copy the repository and build it once:
@@ -344,6 +344,12 @@ await chain(source, schema).save(); // correct
 Every node caches its result. Branching a chain reuses the work done by the
 common part, however many branches you await.
 
+Reading the same property twice from the same node returns the same cached
+node, so `api.user.name` and `api.user.age` share one `api.user` even if you
+never store it in a variable. Method calls are different: each `()` creates a
+new call node, so writing `api.json()` twice runs `json` twice. Store the call
+in a variable to share it.
+
 ```ts
 const res = chain(fetch(url), {
 	json: () => ({ user: { name: String, email: String } }),
@@ -424,9 +430,9 @@ const root = chain(request, { a: { x: Number }, b: { x: Number } });
 const results = await Promise.allSettled([root.a.x, root.b.x]);
 ```
 
-Nodes are promise-like, not promises: they have **no** `.catch` or `.finally`.
-Use `then(undefined, handler)`, `try/catch`, or wrap the node in a real promise
-first: `Promise.resolve(node).catch(handler)`.
+Nodes have `then`, `catch` and `finally`, so `node.catch(handler)` works like it
+does on a promise. They are still not real promises (`instanceof Promise` is
+false); use `Promise.resolve(node)` when you need one.
 
 ### Unhandled rejections
 
@@ -538,30 +544,31 @@ const data = await chain(Promise.resolve({ id: 1 }), { id: Number }); // { id: n
 
 **Runtime behaviour**
 
-1. **Promise-like, not a `Promise`.** A node has only `then`. There is no `catch`,
-   `finally` or `instanceof Promise`. Use `Promise.resolve(node)` when you need
-   a real promise.
+1. **Promise-like, not a `Promise`.** A node has `then`, `catch` and `finally`,
+   but `instanceof Promise` is false and `typeof node` is `"function"`. Use
+   `Promise.resolve(node)` when you need a real promise.
 2. **Lazy.** A node that is never awaited never runs. `void chain(...).save()`
    does not call `save`.
-3. **Arguments are not resolved.** Passing a node as an argument passes the
-   proxy itself, not its value. The types reject this; at runtime it usually
-   fails (for example `Cannot convert object to primitive value`). Await the
-   value first.
+3. **Only top-level arguments are resolved.** A node passed directly as an
+   argument is awaited before the call (alongside the callee, in parallel), so
+   `api.getPosts(api.user.id)` works. A node nested inside an object or array
+   argument is **not** resolved. Plain promises passed as arguments are left
+   as they are.
 
    ```ts
-   const schema = {
-   	user: { id: Number },
-   	getPosts: (id: number) => [{ title: String }],
-   };
+   const api = chain(request, schema);
 
-   const id = await chain(request, schema).user.id;
-   await chain(request, schema).getPosts(id);
+   await api.getPosts(api.user.id); // resolved for you
+   await api.search({ id: api.user.id }); // NOT resolved: await the id first
    ```
 
-4. **A property named `then` is unreachable.** `then` always means "run the
-   chain". Read such a field by awaiting its parent object.
-5. **No iteration.** Spreading a node (`[...node.items]`) silently yields an
-   empty array and `for…of` does not work. Await the array first.
+4. **Properties named `then`, `catch` or `finally` are unreachable.** They
+   always mean the promise methods. Read such a field by awaiting its parent
+   object.
+5. **No iteration.** Spreading a node (`[...node.items]`) or using `for…of`
+   throws a `TypeError` because nodes are not iterable. Await the array first.
+   Well-known symbols (`Symbol.iterator`, `Symbol.toPrimitive`, ...) are not
+   forwarded through the chain; symbols you create yourself are.
 6. **No `new`.** Constructors reached through a node cannot be instantiated.
 7. **Detached methods lose `this`.** `const fn = await node.method` gives an
    unbound function. Call the method through the chain instead.
