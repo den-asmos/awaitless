@@ -119,3 +119,30 @@ test("keep positional types for tuples", () => {
 	expectTypeOf(pair[1]).toEqualTypeOf<Wrapped<number>>();
 	expectTypeOf(pair.length).toEqualTypeOf<Wrapped<2>>();
 });
+
+test("expose toReversed on wrapped arrays", () => {
+	const numbers = null as unknown as Wrapped<number[]>;
+
+	expectTypeOf(numbers.toReversed()).toEqualTypeOf<Wrapped<number[]>>();
+});
+
+test("accept nodes as call arguments", () => {
+	const api = null as unknown as Wrapped<{
+		user: { id: number };
+		getPosts: (id: number, limit?: number) => { title: string }[];
+	}>;
+
+	api.getPosts(42);
+	api.getPosts(api.user.id);
+	api.getPosts(api.user.id, 10);
+
+	// @ts-expect-error node of wrong type is rejected
+	api.getPosts(api.user);
+});
+
+test("expose catch and finally", () => {
+	const name = null as unknown as Wrapped<string>;
+
+	expectTypeOf(name.catch(() => 1)).toEqualTypeOf<Promise<string | number>>();
+	expectTypeOf(name.finally(() => {})).toEqualTypeOf<Promise<string>>();
+});

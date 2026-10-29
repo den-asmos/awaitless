@@ -311,3 +311,36 @@ describe("node arguments", () => {
 		);
 	});
 });
+
+describe("probing", () => {
+	it("throw not iterable error", () => {
+		const node = wrap({ items: [1, 2, 3] }).items;
+
+		expect(() => [...node]).toThrow(TypeError);
+	});
+
+	it("share child nodes between repeated reads", async () => {
+		const json = vi.fn(() => ({ name: "Alex", age: 42 }));
+		const root = wrap({ json });
+
+		await Promise.all([root.json().name, root.json().age]);
+
+		expect(json).toHaveBeenCalledTimes(2);
+		expect(root.json).toBe(root.json);
+	});
+});
+
+describe("promise compatibility", () => {
+	it("support catch", async () => {
+		const node = wrap({ user: null }).user.name;
+
+		await expect(node.catch(() => "some error")).resolves.toBe("some error");
+	});
+
+	it("support finally", async () => {
+		const done = vi.fn();
+
+		await expect(wrap({ id: 42 }).id.finally(done)).resolves.toBe(42);
+		expect(done).toHaveBeenCalledTimes(1);
+	});
+});
